@@ -1,0 +1,94 @@
+# AGENTS.md — ig-reel-downloader
+
+Guidance for AI coding agents (and humans) working on this repository.
+
+## 🎯 What this repo is
+
+One userscript, `ig-reel-downloader-userscript.user.js`, at the repo root. It reads the current reel/post payload and exposes the media URLs for copy or download.
+
+## 🔌 Endpoint notes (API-first)
+
+| Step | Request |
+|------|---------|
+| Shortcode → id | local base64url decode, alphabet `ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_` |
+| Media payload | `GET /api/v1/media/<id>/info/` → `items[0]` |
+| Carousel | `items[0].carousel_media[]`, each with `image_versions2` or `video_versions` |
+
+Headers:
+
+```js
+"x-ig-app-id": "936619743392459"
+"x-csrftoken": <csrftoken cookie>
+"x-requested-with": "XMLHttpRequest"
+```
+
+Why the local decode: the old `?__a=1&__d=dis` endpoint now needs auth cookies and returns HTML for many sessions. Shortcode is plain base64url of the pk, so `BigInt` accumulation is exact and dependency-free.
+
+- Never trust `original_width`/`original_height` alone; fall back to the first candidate's dimensions.
+- `video_versions[0].url` is the playable MP4; there is no separate audio file to merge.
+- `@grant none`.
+
+## 🧭 Golden rules
+
+1. One file, zero dependencies, `@grant none`.
+2. **Never fire while typing.** `isTyping()` guards the global keys; the URL field is an input.
+3. Auto-load only when the shortcode actually changed (`state.lastCode`) — SPA re-renders fire the route tick often.
+4. Always ship the sidecar JSON with a full download; attribution is part of the product.
+5. Bump `@version` on functional changes.
+
+## 🧪 Test with sctl
+
+```bash
+sctl install ./ig-reel-downloader-userscript.user.js
+sctl page goto "https://www.instagram.com/reel/<shortcode>/"
+sctl page eval "document.querySelectorAll('.igrd-item').length"
+sctl page eval "document.querySelector('#igrd-meta').textContent"
+sctl page click ".igrd-item .igrd-mini"     # copy first URL
+sctl debug console --level error
+```
+
+Expected: one row per media file, `meta` shows `@author · n file(s) · shortcode`, no console errors.
+
+## 🗂️ Layout
+
+| File | Purpose |
+|------|---------|
+| `ig-reel-downloader-userscript.user.js` | The script. Edit this. |
+| `README.md` | User-facing docs. |
+| `okf/` | Generated scoped bundle. |
+
+## 📌 Known fragility
+
+- Signed CDN URLs expire; a stale panel will 403 on download. Reload the post.
+- Reels sometimes arrive as `items[0]` with a `video_versions` entry only — never assume `image_versions2`.
+- `/reels/<code>/` and `/reel/<code>/` both exist; the regex covers `p|reel|reels|tv`.
+
+<!-- okf-requirement -->
+## 🧠 OKF documentation requirement (mandatory)
+
+**Every repository in this collection MUST ship an Open Knowledge Format (OKF) bundle in `okf/`.**
+
+A repository without `okf/` is **incomplete**, even if the script works.
+
+### What must exist
+
+```
+okf/
+├── bundle.md      overview of the collection
+├── index.md       catalogue of concepts
+├── concepts/      all shared concept notes
+└── scripts/       THIS repository's own script note
+```
+
+### Rules
+
+1. **Never hand-edit** a repository's `okf/` copy. The canonical bundle is
+   `repos/own/public/userscripts/okf/` in the `c:\ws` monorepo.
+2. After changing the canonical bundle, regenerate every copy:
+   `node okf/sync-okf.mjs`
+3. Verify nothing has drifted: `node okf/sync-okf.mjs --check` — must exit `0`.
+4. `README.md` must link to `okf/`. `AGENTS.md` (this file) must restate this requirement.
+5. When adding a new script, add its note at `okf/scripts/<repo-name>.md` in the canonical
+   bundle first, then sync.
+
+Full detail: [`okf/concepts/okf-requirement.md`](okf/concepts/okf-requirement.md)
