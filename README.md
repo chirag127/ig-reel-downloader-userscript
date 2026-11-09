@@ -40,7 +40,7 @@ Read-only. No likes, saves or follows are created. Downloading does not notify t
 
 ## 🧠 Docs
 
-Endpoint notes and rules: [AGENTS.md](AGENTS.md). Knowledge bundle: [okf/index.md](okf/index.md).
+Endpoint notes and rules: [AGENTS.md](AGENTS.md). Knowledge bundle: [okf/index.md](../../../../../docs/okf/index.md).
 
 ## 📄 License
 
